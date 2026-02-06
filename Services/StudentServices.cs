@@ -1,10 +1,7 @@
-using System.Data;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using UniversityApi.Data;
 using UniversityApi.DTOs;
 using UniversityApi.Models;
-using UniversityApi.Services;
 
 namespace UniversityApi.Services;
 
@@ -19,11 +16,11 @@ public class StudentService : IStudentServices
 
   public async Task<StudentResponseDto> CreateAsync(CreateStudentDto dto, CancellationToken ct)
   {
-    var UniversityExits = await _context.Universities
-    .AnyAsync(u => u.Id == dto.UniversityId, ct);
+    var universityExists = await _context.Universities
+        .AnyAsync(u => u.Id == dto.UniversityId, ct);
 
-    if (!UniversityExits)
-      throw new InvalidOperationException("University dose not exit");
+    if (!universityExists)
+      throw new InvalidOperationException("University does not exist");
 
     var student = new Student
     {
@@ -32,7 +29,7 @@ public class StudentService : IStudentServices
       UniversityId = dto.UniversityId
     };
 
-    _context.Students.Add(student); // Why not add async ? 
+    _context.Students.Add(student);
     await _context.SaveChangesAsync(ct);
 
     return new StudentResponseDto
@@ -47,42 +44,40 @@ public class StudentService : IStudentServices
   public async Task<IEnumerable<StudentResponseDto>> GetAllAsync(CancellationToken ct)
   {
     return await _context.Students
-    .Select(s => new StudentResponseDto
-    {
-      Id = s.Id,
-      Name = s.Name,
-      Age = s.Age,
-      UniversityId = s.UniversityId
-    })
-    .ToListAsync(ct);
+        .Select(s => new StudentResponseDto
+        {
+          Id = s.Id,
+          Name = s.Name,
+          Age = s.Age,
+          UniversityId = s.UniversityId
+        })
+        .ToListAsync(ct);
   }
 
   public async Task<StudentResponseDto?> GetByIdAsync(int id, CancellationToken ct)
   {
     return await _context.Students
-    .Where(s => s.Id == id)
-    .Select(s => new StudentResponseDto
-    {
-      Id = s.Id,
-      Name = s.Name,
-      Age = s.Age,
-      UniversityId = s.UniversityId
-    })
-    .FirstOrDefaultAsync(ct);
+        .Where(s => s.Id == id)
+        .Select(s => new StudentResponseDto
+        {
+          Id = s.Id,
+          Name = s.Name,
+          Age = s.Age,
+          UniversityId = s.UniversityId
+        })
+        .FirstOrDefaultAsync(ct);
   }
 
   public async Task<bool> UpdateAsync(int id, UpdateStudentDto dto, CancellationToken ct)
   {
-    var student = await _context.Students
-    .FindAsync(new object[] { id }, ct);
-
+    var student = await _context.Students.FindAsync(new object[] { id }, ct);
     if (student == null)
       return false;
 
-    var UniversityExits = await _context.Universities
-    .AnyAsync(u => u.Id == dto.UniversityId, ct);
+    var universityExists = await _context.Universities
+        .AnyAsync(u => u.Id == dto.UniversityId, ct);
 
-    if (!UniversityExits)
+    if (!universityExists)
       throw new InvalidOperationException("University does not exist");
 
     student.Name = dto.Name;
@@ -95,19 +90,12 @@ public class StudentService : IStudentServices
 
   public async Task<bool> DeleteAsync(int id, CancellationToken ct)
   {
-    var student = await _context.Students
-    .FindAsync(new object[] { id }, ct);
-
+    var student = await _context.Students.FindAsync(new object[] { id }, ct);
     if (student == null)
       return false;
 
     _context.Students.Remove(student);
-    _context.SaveChangesAsync(ct);
-
+    await _context.SaveChangesAsync(ct);
     return true;
   }
-
-
-
-
 }
