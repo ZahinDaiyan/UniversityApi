@@ -14,7 +14,9 @@ public class UniversityService : IUniversityService
 		_context = context;
 	}
 
-	public async Task<UniversityResponseDto> CreateAsync(CreateUniversityDto dto)
+	public async Task<UniversityResponseDto> CreateAsync(
+			CreateUniversityDto dto,
+			CancellationToken ct)
 	{
 		var university = new University
 		{
@@ -23,7 +25,7 @@ public class UniversityService : IUniversityService
 		};
 
 		_context.Universities.Add(university);
-		await _context.SaveChangesAsync();
+		await _context.SaveChangesAsync(ct);
 
 		return new UniversityResponseDto
 		{
@@ -33,7 +35,8 @@ public class UniversityService : IUniversityService
 		};
 	}
 
-	public async Task<IEnumerable<UniversityResponseDto>> GetAllAsync()
+	public async Task<IEnumerable<UniversityResponseDto>> GetAllAsync(
+			CancellationToken ct)
 	{
 		return await _context.Universities
 				.Select(u => new UniversityResponseDto
@@ -42,10 +45,12 @@ public class UniversityService : IUniversityService
 					Name = u.Name,
 					CityName = u.CityName
 				})
-				.ToListAsync();
+				.ToListAsync(ct);
 	}
 
-	public async Task<UniversityResponseDto?> GetByIdAsync(int id)
+	public async Task<UniversityResponseDto?> GetByIdAsync(
+			int id,
+			CancellationToken ct)
 	{
 		return await _context.Universities
 				.Where(u => u.Id == id)
@@ -55,31 +60,41 @@ public class UniversityService : IUniversityService
 					Name = u.Name,
 					CityName = u.CityName
 				})
-				.FirstOrDefaultAsync();
+				.FirstOrDefaultAsync(ct);
 	}
 
-	public async Task<bool> UpdateAsync(int id, UpdateUniversityDto dto)
+	public async Task<bool> UpdateAsync(
+			int id,
+			UpdateUniversityDto dto,
+			CancellationToken ct)
 	{
-		var university = await _context.Universities.FindAsync(id);
-		if (university == null) return false;
+		var university = await _context.Universities
+				.FindAsync(new object[] { id }, ct);
+
+		if (university == null)
+			return false;
 
 		university.Name = dto.Name;
 		university.CityName = dto.CityName;
 
-		await _context.SaveChangesAsync();
+		await _context.SaveChangesAsync(ct);
 		return true;
 	}
 
-	public async Task<bool> DeleteAsync(int id)
+	public async Task<bool> DeleteAsync(
+			int id,
+			CancellationToken ct)
 	{
 		var university = await _context.Universities
-				.Include(u => u.Students) // ensure cascade removal or check business rules
-				.FirstOrDefaultAsync(u => u.Id == id);
+				.Include(u => u.Students)
+				.FirstOrDefaultAsync(u => u.Id == id, ct);
 
-		if (university == null) return false;
+		if (university == null)
+			return false;
 
 		_context.Universities.Remove(university);
-		await _context.SaveChangesAsync();
+		await _context.SaveChangesAsync(ct);
+
 		return true;
 	}
 }
