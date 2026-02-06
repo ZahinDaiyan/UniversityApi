@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UniversityApi.Data;
 using UniversityApi.DTOs;
 using UniversityApi.Models;
+using UniversityApi.Services;
 
 namespace UniversityApi.Controllers;
 
@@ -10,97 +11,36 @@ namespace UniversityApi.Controllers;
 [Route("api/[controller]")]
 public class UniversitiesController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IUniversityService _service;
 
-    public UniversitiesController(AppDbContext context)
+    public UniversitiesController(IUniversityService service)
     {
-        _context = context;
+        _service = service;
     }
 
-    // GET: api/universities
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UniversityResponseDto>>> GetAll()
-    {
-        var universities = await _context.Universities
-            .Select(u => new UniversityResponseDto
-            {
-                Id = u.Id,
-                Name = u.Name,
-                CityName = u.CityName
-            })
-            .ToListAsync();
+        => Ok(await _service.GetAllAsync());
 
-        return Ok(universities);
-    }
-
-    // GET: api/universities/{id}
     [HttpGet("{id:int}")]
     public async Task<ActionResult<UniversityResponseDto>> GetById(int id)
     {
-        var university = await _context.Universities.FindAsync(id);
-
-        if (university == null) return NotFound(new { message = "University not found" });
-
-        return Ok(new UniversityResponseDto
-        {
-            Id = university.Id,
-            Name = university.Name,
-            CityName = university.CityName
-        });
+        var uni = await _service.GetByIdAsync(id);
+        return uni == null ? NotFound(new { message = "University not found" }) : Ok(uni);
     }
 
-    // POST: api/universities
     [HttpPost]
-    public async Task<ActionResult<UniversityResponseDto>> Create([FromBody] CreateUniversityDto dto)
+    public async Task<ActionResult<UniversityResponseDto>> Create(CreateUniversityDto dto)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
-
-        var university = new University
-        {
-            Name = dto.Name,
-            CityName = dto.CityName
-        };
-
-        _context.Universities.Add(university);
-        await _context.SaveChangesAsync();
-
-        var response = new UniversityResponseDto
-        {
-            Id = university.Id,
-            Name = university.Name,
-            CityName = university.CityName
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = university.Id }, response);
+        var uni = await _service.CreateAsync(dto);
+        return CreatedAtAction(nameof(GetById), new { id = uni.Id }, uni);
     }
 
-    // PUT: api/universities/{id}
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UpdateUniversityDto dto)
-    {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
+    public async Task<IActionResult> Update(int id, UpdateUniversityDto dto)
+        => await _service.UpdateAsync(id, dto) ? NoContent() : NotFound();
 
-        var university = await _context.Universities.FindAsync(id);
-        if (university == null) return NotFound(new { message = "University not found" });
-
-        university.Name = dto.Name;
-        university.CityName = dto.CityName;
-
-        await _context.SaveChangesAsync();
-
-        return NoContent();
-    }
-
-    // DELETE: api/universities/{id}
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
-    {
-        var university = await _context.Universities.Include(u => u.Students).FirstOrDefaultAsync(u => u.Id == id);
-        if (university == null) return NotFound(new { message = "University not found" });
-
-        _context.Universities.Remove(university);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
-    }
+        => await _service.DeleteAsync(id) ? NoContent() : NotFound();
 }

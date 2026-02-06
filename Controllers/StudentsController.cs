@@ -3,137 +3,64 @@ using Microsoft.EntityFrameworkCore;
 using UniversityApi.Data;
 using UniversityApi.DTOs;
 using UniversityApi.Models;
+using UniversityApi.Services;
 
 [ApiController]
-[Route("api/students")]
+[Route("api/[controller]")]
 public class StudentsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+	private readonly IStudentServices _service;
 
-    public StudentsController(AppDbContext context)
-    {
-        _context = context;
-    }
+	public StudentsController(IStudentServices service)
+	{
+		_service = service;
+	}
 
-    // POST: api/students
-    [HttpPost]
-    public async Task<ActionResult<StudentResponseDto>> Create(CreateStudentDto dto, CancellationToken cancellationToken)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+	[HttpPost]
+	public async Task<ActionResult<StudentResponseDto>> Create(
+			CreateStudentDto dto,
+			CancellationToken ct)
+	{
+		try
+		{
+			var student = await _service.CreateAsync(dto, ct);
+			return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
+		}
+		catch (InvalidOperationException ex)
+		{
+			return BadRequest(new { message = ex.Message });
+		}
+	}
 
-        var universityExits = await _context.Universities
-        .AnyAsync(u => u.Id == dto.UniversityId, cancellationToken);
+	[HttpGet]
+	public async Task<ActionResult<IEnumerable<StudentResponseDto>>> GetAll(CancellationToken ct)
+			=> Ok(await _service.GetAllAsync(ct));
 
-        if (!universityExits)
-            return BadRequest(new { message = "University dose not exits" });
+	[HttpGet("{id:int}")]
+	public async Task<ActionResult<StudentResponseDto>> GetById(int id, CancellationToken ct)
+	{
+		var student = await _service.GetByIdAsync(id, ct);
+		return student == null
+				? NotFound(new { message = "Student not found" })
+				: Ok(student);
+	}
 
-        var student = new Student
-        {
-            Name = dto.Name,
-            Age = dto.Age,
-            UniversityId = dto.UniversityId
-        };
+	[HttpPut("{id:int}")]
+	public async Task<IActionResult> Update(int id, UpdateStudentDto dto, CancellationToken ct)
+	{
+		try
+		{
+			var updated = await _service.UpdateAsync(id, dto, ct);
+			return updated ? NoContent() : NotFound();
+		}
+		catch (InvalidOperationException ex)
+		{
+			return BadRequest(new { message = ex.Message });
+		}
+	}
 
-        _context.Students.Add(student);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return CreatedAtAction(
-      nameof(GetById),
-      new { id = student.Id },
-      new StudentResponseDto
-      {
-          Id = student.Id,
-          Name = student.Name,
-          Age = student.Age,
-          UniversityId = student.UniversityId
-      }
-  );
-
-    }
-    // GET: api/students
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentResponseDto>>> GetAll(CancellationToken cancellationToken)
-    {
-        var student = await _context.Students
-        .Select(s => new StudentResponseDto
-        {
-            Id = s.Id,
-            Name = s.Name,
-            Age = s.Age,
-            UniversityId = s.UniversityId
-        })
-        .ToListAsync(cancellationToken);
-
-        return Ok(student);
-    }
-
-    //Get : api/students/{id}
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<StudentResponseDto>> GetById(int id, CancellationToken cancellationToken)
-    {
-
-        var student = await _context.Students
-        .Where(s => s.Id == id)
-        .Select(s => new StudentResponseDto
-        {
-            Id = s.Id,
-            Name = s.Name,
-            Age = s.Age,
-            UniversityId = s.UniversityId
-        })
-        .FirstOrDefaultAsync(cancellationToken);
-
-        if (student == null)
-            return NotFound(new { message = "Student dose not exit" });
-
-        return Ok(student);
-    }
-
-    //Put : api/students/{id}
-    [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, UpdateStudentDto dto, CancellationToken cancellationToken)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        var student = await _context.Students
-        .FindAsync(new object[] { id }, cancellationToken);
-
-        if (student == null)
-            return NotFound(new { message = "Student Not Found" });
-
-        var universityExits = await _context.Universities
-        .AnyAsync(u => u.Id == dto.UniversityId, cancellationToken);
-
-        if (!universityExits)
-            return BadRequest(new { message = "University dose not exit" });
-
-        student.Name = dto.Name;
-        student.Age = dto.Age;
-        student.UniversityId = dto.UniversityId;
-
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return NoContent();
-    }
-
-    // Delete: api/students/{id}
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
-    {
-        var student = await _context.Students
-        .FindAsync(new object[] { id }, cancellationToken);
-
-        if (student == null)
-            return NotFound(new { message = "Student dose not exit" });
-
-        _context.Students.Remove(student);
-        await _context.SaveChangesAsync(cancellationToken);
-
-
-        return NoContent();
-    }
-
+	[HttpDelete("{id:int}")]
+	public async Task<IActionResult> Delete(int id, CancellationToken ct)
+			=> await _service.DeleteAsync(id, ct) ? NoContent() : NotFound();
 }
 
