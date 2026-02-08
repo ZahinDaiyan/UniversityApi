@@ -9,6 +9,8 @@ public class AppDbContext : DbContext
   public DbSet<University> Universities { get; set; }
   public DbSet<Student> Students { get; set; }
 
+  public DbSet<User> Users { get; set; }
+
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
     // University Configuration
@@ -41,6 +43,17 @@ public class AppDbContext : DbContext
 
       entity.Property(s => s.Age)
         .IsRequired();
+
+    });
+
+    // User Configuration
+    modelBuilder.Entity<User>(entity =>
+    {
+      entity.HasKey(u => u.Id);
+
+      entity.Property(u => u.Username)
+        .IsRequired()
+        .HasMaxLength(100);
 
     });
 
